@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: payment-similarity-poc
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  qdrant:
+    url: ${APP_QDRANT_URL:http://localhost:6333}
+    collection: ${APP_QDRANT_COLLECTION:merchant_risk_profiles}
+    vector-size: 16
+  risk:
+    minimum-score-for-decision: 0.78
+    decline-score-threshold: 0.90
+    review-score-threshold: 0.78

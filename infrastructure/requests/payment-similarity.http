@@ -1,0 +1,60 @@
+### Health check
+GET http://localhost:8080/actuator/health
+
+### Indexar perfil de riesgo en Qdrant
+POST http://localhost:8080/api/v1/merchant-risk-profiles
+Content-Type: application/json
+
+{
+  "profileCode": "MRC-HIGH-RISK-001",
+  "merchantName": "Betamarket Digital",
+  "mcc": "5734",
+  "country": "PE",
+  "paymentMethod": "CARD",
+  "avgAmount": 280.00,
+  "chargebackRateBps": 380,
+  "fraudRateBps": 210,
+  "recommendedAction": "REVIEW",
+  "label": "digital goods with high chargeback pattern",
+  "notes": "Ticket medio alto y contracargos recurrentes."
+}
+
+### Evaluar un pago contra perfiles similares
+POST http://localhost:8080/api/v1/payment-risk-assessments
+Content-Type: application/json
+
+{
+  "paymentId": "018f4df9-7d26-7c0f-9bb5-70077d4ef001",
+  "amount": 295.90,
+  "currency": "PEN",
+  "merchantId": "merchant-991",
+  "merchantName": "Beta Market Online",
+  "mcc": "5734",
+  "country": "PE",
+  "paymentMethod": "CARD",
+  "channel": "ECOMMERCE",
+  "internationalCard": false,
+  "newDevice": true,
+  "previousChargebacks": 1,
+  "topK": 3
+}
+
+### Evaluar un pago de bajo riesgo
+POST http://localhost:8080/api/v1/payment-risk-assessments
+Content-Type: application/json
+
+{
+  "paymentId": "018f4df9-7d26-7c0f-9bb5-70077d4ef002",
+  "amount": 24.90,
+  "currency": "PEN",
+  "merchantId": "merchant-100",
+  "merchantName": "Cafe Lima Centro",
+  "mcc": "5814",
+  "country": "PE",
+  "paymentMethod": "CARD",
+  "channel": "POS",
+  "internationalCard": false,
+  "newDevice": false,
+  "previousChargebacks": 0,
+  "topK": 3
+}
