@@ -1,4 +1,4 @@
-# PoC Payment Similarity Search con Java 25, Spring Boot 4 y Qdrant
+# Payment Similarity Search con Java 25, Spring Boot 4 y Qdrant
 
 # Descripción de la funcionalidad
 
