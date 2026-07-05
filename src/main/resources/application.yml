@@ -18,8 +18,8 @@ management:
 app:
   qdrant:
     url: ${APP_QDRANT_URL:http://localhost:6333}
-    collection: ${APP_QDRANT_COLLECTION:merchant_risk_profiles}
-    vector-size: 16
+    collection: ${APP_QDRANT_COLLECTION:merchant_risk_profiles_v2}
+    vector-size: 32
   risk:
     minimum-score-for-decision: 0.78
     decline-score-threshold: 0.90

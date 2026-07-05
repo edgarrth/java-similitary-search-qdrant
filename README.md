@@ -2,17 +2,17 @@
 
 # Descripción de la funcionalidad
 
-Esta PoC implementa un microservicio REST enfocada en pagos. El caso es de **evaluar el riesgo de una transacción nueva comparándola por similitud 
-contra perfiles históricos de comercios y patrones de pago** almacenados en Qdrant.
+Esta PoC implementa un microservicio REST para una fintech enfocada en pagos. El caso de uso es **evaluar el riesgo de una transacción nueva comparándola por similitud contra perfiles históricos de comercios y patrones de pago** almacenados en Qdrant.
 
-La PoC no entrena modelos de IA. Usa una estrategia simple de vectorización determinística llamada **feature hashing**, suficiente para demostrar el patrón 
-técnico de similarity search:
+La PoC no entrena modelos de IA. Usa un vectorizador de dominio llamado **DomainPaymentFeatureEmbeddingAdapter**, que transforma datos estructurados de pagos en un vector explícito, versionado y normalizado:
 
 1. Se precargan perfiles de riesgo de comercios en Qdrant.
-2. Cada perfil se convierte en un vector numérico de 16 dimensiones.
-3. Una transacción nueva se convierte en un vector con la misma función.
+2. Cada perfil se convierte en un vector numérico de 32 dimensiones con schema `payment-risk-vector-v2`.
+3. Una transacción nueva se convierte en un vector con la misma semántica de negocio.
 4. Qdrant busca los perfiles más similares por distancia coseno.
 5. Una política de dominio decide si la transacción debe aprobarse, revisarse o rechazarse.
+
+El objetivo es demostrar cómo integrar **DDD + arquitectura hexagonal + Spring Boot 4 + Java 25 + Qdrant** sin agregar componentes innecesarios.
 
 # Componentes de infraestructura
 
@@ -22,6 +22,7 @@ La infraestructura mínima es:
 |---|---|
 | Qdrant | Base vectorial para almacenar perfiles de riesgo y ejecutar similarity search. |
 
+No se incluye broker, base relacional ni caché porque no son necesarios para probar el concepto.
 
 # Estructura del proyecto
 
@@ -68,7 +69,7 @@ flowchart LR
         Controller[REST Controller]
         UseCase[Application Service / Use Case]
         Domain[Dominio DDD\nPaymentIntent\nMerchantRiskProfile\nPaymentRiskDecisionPolicy]
-        Embedding[FeatureHashingPaymentEmbeddingAdapter]
+        Embedding[DomainPaymentFeatureEmbeddingAdapter\nPaymentFeatureVectorSchema v2]
         Port[Puerto de búsqueda vectorial]
         Adapter[Qdrant Adapter]
     end
@@ -179,8 +180,35 @@ Implementa detalles técnicos:
 
 - `PaymentRiskAssessmentController`: API REST.
 - `MerchantRiskProfileController`: API REST para indexar perfiles.
-- `FeatureHashingPaymentEmbeddingAdapter`: vectorizador determinístico de 16 dimensiones.
+- `DomainPaymentFeatureEmbeddingAdapter`: vectorizador de dominio de 32 dimensiones con features explícitas para pagos.
+- `PaymentFeatureVectorSchema`: contrato versionado del vector `payment-risk-vector-v2`.
 - `QdrantMerchantRiskProfileRepository`: adaptador HTTP hacia Qdrant.
+
+
+# Vectorización profesional aplicada
+
+La versión anterior usaba feature hashing genérico. Esta versión usa un vectorizador más profesional para el caso fintech de pagos:
+
+| Grupo de features | Ejemplos | Motivo |
+|---|---|---|
+| Monto | log-normalización y buckets micro/bajo/medio/alto | Evita que montos grandes dominen toda la distancia. |
+| Método de pago | CARD, WALLET, TRANSFER, QR | Distingue patrones de riesgo por rail de pago. |
+| Canal | POS, ECOMMERCE, MOBILE, API | Diferencia fraude presencial, online, móvil e integración API. |
+| País | PE, LATAM, OTHER | Permite separar patrones locales y cross-border. |
+| MCC agrupado | food/grocery, pharmacy, electronics, travel, transport, digital goods | Reduce ruido del código exacto y conserva semántica comercial. |
+| Señales de riesgo | tarjeta internacional, dispositivo nuevo, contracargos previos | Acerca pagos nuevos a perfiles con presión de riesgo similar. |
+| Presión histórica | chargeback/fraud rate en bps | Usa comportamiento histórico del comercio como señal cuantitativa. |
+| Priors de acción | APPROVE, REVIEW, DECLINE | Ayuda a alinear la similitud con la decisión histórica esperada. |
+
+El schema del vector está documentado en `PaymentFeatureVectorSchema` y en `VECTOR_SCHEMA.md`. El tamaño configurado en `application.yml` es `32` y la colección por defecto es `merchant_risk_profiles_v2`, para no mezclar vectores antiguos de 16 dimensiones con el nuevo schema.
+
+# Nota de compilación y runtime
+
+Esta versión evita usar `JsonNode` directamente en el adaptador de Qdrant. Spring Boot 4 / Spring Framework 7 usan Jackson 3 bajo el paquete `tools.jackson.*`; mezclarlo con `com.fasterxml.jackson.databind.JsonNode` puede provocar errores de deserialización en runtime.
+
+El adaptador `QdrantMerchantRiskProfileRepository` ahora parsea la respuesta de Qdrant como `Map<?, ?>`, lo que evita acoplar la PoC a una clase concreta de Jackson y mantiene el código compatible con Spring Boot 4.
+
+Además, `ApplicationBeansConfig` declara explícitamente un bean `RestClient.Builder` para que `mvn spring-boot:run` pueda crear el cliente HTTP usado por el adaptador de salida de Qdrant.
 
 # Cómo levantar Qdrant
 
@@ -284,5 +312,5 @@ En Linux, si `host.docker.internal` no resuelve, usa la IP del host o agrega `--
 - Qdrant se usa como base vectorial y almacenamiento de payload de perfiles.
 - La PoC usa distancia `Cosine`.
 - La colección se crea automáticamente al primer upsert o search si no existe.
-- El vectorizador es intencionalmente simple para que la PoC sea autocontenida.
-- En producción se reemplazaría `FeatureHashingPaymentEmbeddingAdapter` por embeddings generados por un modelo, reglas feature-store o un servicio especializado.
+- El vectorizador ya no usa hashing genérico; usa un contrato explícito de 32 dimensiones.
+- En producción, este vectorizador puede evolucionar a una feature-store real, incorporar embeddings de texto para nombre/descriptor del comercio, o llamar a un servicio de scoring/ML externo manteniendo el mismo puerto `PaymentEmbeddingPort`.
