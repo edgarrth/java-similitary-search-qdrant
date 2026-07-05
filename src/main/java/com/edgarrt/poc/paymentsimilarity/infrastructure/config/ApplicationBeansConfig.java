@@ -18,9 +18,9 @@ public class ApplicationBeansConfig {
     @Bean
     RestClient qdrantRestClient(RestClient.Builder builder, QdrantProperties properties) {
         return builder
-            .baseUrl(properties.url())
-            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-            .build();
+                .baseUrl(properties.url())
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
     }
 
     @Bean
