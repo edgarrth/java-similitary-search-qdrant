@@ -1,11 +1,11 @@
-# Payment Similarity Search con Java 25, Spring Boot 4 y Qdrant
+# Payment Similarity Search con Java y Qdrant
 
 # Descripción de la funcionalidad
 
 Esta PoC implementa un microservicio REST enfocado en pagos. El caso busca **evaluar el riesgo de una transacción nueva comparándola por 
 similitud contra perfiles históricos de comercios y patrones de pago** almacenados en Qdrant.
 
-La PoC no entrena modelos de IA. Usa un vectorizador de dominio llamado **DomainPaymentFeatureEmbeddingAdapter**, 
+La PoC no entrena modelos de IA, usa un vectorizador de dominio llamado **DomainPaymentFeatureEmbeddingAdapter**, 
 que transforma datos estructurados de pagos en un vector explícito, versionado y normalizado:
 
 1. Se precargan perfiles de riesgo de comercios en Qdrant.
@@ -26,8 +26,10 @@ La infraestructura mínima es:
 # Tecnologias
 
 - JDK 25
+- Spring boot 4
 - Maven 3.9.x o superior
 - Docker / Docker Compose
+  
 # Estructura del proyecto
 
 ```text
@@ -92,8 +94,6 @@ flowchart LR
     Adapter --> UseCase
     UseCase --> Controller
 ```
-
-
 
 # Código principal
 
@@ -193,6 +193,7 @@ infrastructure/requests/payment-similarity.http
 Opción 2: usar curl:
 
 ## 1. Indexar perfil de riesgo
+Guardar un patrón histórico de riesgo en Qdrant, esto indica que el tipo de comercio, con este MCC, país, método de pago, monto promedio y tasas históricas de fraude/contracargo, suele tener este nivel de riesgo.
 
 ```http
 POST /api/v1/merchant-risk-profiles
@@ -214,6 +215,8 @@ Content-Type: application/json
 ```
 
 ## 2. Evaluar un pago con similarity search
+
+Este pago se convierte en un vector con la misma semántica que los perfiles históricos. Luego Qdrant busca los topK perfiles más similares. En el ejemplo, topK: 3 significa: “devuélveme los 3 perfiles históricos más parecidos a este pago”.
 
 ```http
 POST /api/v1/payment-risk-assessments
